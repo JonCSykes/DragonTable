@@ -1,6 +1,7 @@
 package mapFile
 
 import (
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io/ioutil"
@@ -8,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"github.com/gxcbuf/graphics-go/graphics"
 )
 
@@ -18,6 +21,9 @@ type MapFile struct {
 	Extension         string
 	FullPath          string
 	FullThumbnailPath string
+	Image             *canvas.Image
+	ImageResource     fyne.Resource
+	ThumbResource     fyne.Resource
 }
 
 const MapPath string = "./resources/maps"
@@ -30,7 +36,14 @@ func InitMapFile(fullPath string) *MapFile {
 	extension := fullFileName[strings.LastIndex(fullFileName, ".")+1:]
 	fileName := fullFileName[:strings.LastIndex(fullFileName, ".")]
 
-	newMapFile := MapFile{FileName: fileName, Path: path, Extension: extension, FullPath: fullPath}
+	imageResource, imageError := fyne.LoadResourceFromPath(fullPath)
+	if imageError != nil {
+		fmt.Println(imageError)
+	}
+
+	image := canvas.NewImageFromResource(imageResource)
+
+	newMapFile := MapFile{FileName: fileName, Path: path, Extension: extension, FullPath: fullPath, ImageResource: imageResource, Image: image}
 
 	newMapFile.GenerateThumb()
 
@@ -43,7 +56,7 @@ func (mapFile *MapFile) GenerateThumb() {
 	defer imagePath.Close()
 	srcImage, _, _ := image.Decode(imagePath)
 
-	dstImage := image.NewRGBA(image.Rect(0, 0, 400, 100))
+	dstImage := image.NewRGBA(image.Rect(0, 0, 400, 50))
 
 	graphics.Thumbnail(dstImage, srcImage)
 
@@ -53,7 +66,13 @@ func (mapFile *MapFile) GenerateThumb() {
 	defer newImage.Close()
 	jpeg.Encode(newImage, dstImage, &jpeg.Options{Quality: jpeg.DefaultQuality})
 
+	mapThumb, thumbError := fyne.LoadResourceFromPath(fullThumbnailPath)
+	if thumbError != nil {
+		fmt.Println(thumbError)
+	}
+
 	mapFile.FullThumbnailPath = fullThumbnailPath
+	mapFile.ThumbResource = mapThumb
 }
 
 func GetMaps() []*MapFile {

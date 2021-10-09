@@ -17,18 +17,24 @@ import (
 
 var ScreenHeight int
 var ScreenWidth int
+var mainWindow fyne.Window
+var mapFiles []*mapFile.MapFile
+var mainContent *fyne.Container
 
 func main() {
 
 	GetScreenResolution()
 
 	myApp := app.New()
-	myWindow := myApp.NewWindow("Dragon Table")
+	mainWindow = myApp.NewWindow("Dragon Table")
 
-	myWindow.SetPadded(true)
-	myWindow.SetFullScreen(true)
-	myWindow.SetContent(BuildUI())
-	myWindow.ShowAndRun()
+	BuildUI()
+
+	mainWindow.SetContent(mainContent)
+
+	mainWindow.SetPadded(true)
+	//mainWindow.SetFullScreen(true)
+	mainWindow.ShowAndRun()
 }
 
 func GetScreenResolution() {
@@ -40,52 +46,96 @@ func GetScreenResolution() {
 	fmt.Println(strconv.Itoa(ScreenWidth) + " x " + strconv.Itoa(ScreenHeight))
 }
 
-func BuildUI() *fyne.Container {
+func BuildUI() {
 
-	image := BuildImageDisplay()
 	mapList := BuildNavList()
 	touchControlButton := BuildNavButtons()
+	images := BuildImageDisplay()
+	content := container.NewWithoutLayout()
 
-	content := container.NewWithoutLayout(image, mapList, touchControlButton)
+	for _, image := range images {
+		content.Add(image)
+	}
 
-	return content
+	content.Add(mapList)
+	content.Add(touchControlButton)
+
+	mainContent = content
 }
 
-func BuildImageDisplay() *canvas.Image {
-	image := canvas.NewImageFromFile("./resources/maps/campaign_khorvaire.jpg")
-	image.Resize(fyne.NewSize(float32(ScreenWidth), float32(ScreenHeight)))
-	image.FillMode = canvas.ImageFillStretch
-	image.Move(fyne.Position{X: 0, Y: 0})
+func BuildImageDisplay() []*canvas.Image {
 
-	return image
+	if len(mapFiles) == 0 {
+		mapFiles = mapFile.GetMaps()
+	}
+
+	var images []*canvas.Image
+	for i, mapFile := range mapFiles {
+		if i > 1 {
+			mapFile.Image.Hide()
+		}
+
+		mapFile.Image.Resize(fyne.NewSize(float32(ScreenWidth), float32(ScreenHeight)))
+		mapFile.Image.FillMode = canvas.ImageFillContain
+		mapFile.Image.Move(fyne.Position{X: 0, Y: 0})
+
+		images = append(images, mapFile.Image)
+	}
+	return images
 }
 
 func BuildNavList() *widget.List {
 
-	mapFiles := mapFile.GetMaps()
+	if len(mapFiles) == 0 {
+		mapFiles = mapFile.GetMaps()
+	}
 
 	mapList := widget.NewList(
 		func() int {
 			return len(mapFiles)
 		},
 		func() fyne.CanvasObject {
-			return widgetExt.NewImageButton("test", nil, nil)
+			return widgetExt.NewImageButton("", nil, nil)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 
-			mapThumb, thumbError := fyne.LoadResourceFromPath(mapFiles[i].FullThumbnailPath)
-			if thumbError != nil {
-				fmt.Println(thumbError)
+			o.(*widgetExt.ImageButton).SetText(mapFiles[i].FileName)
+			o.(*widgetExt.ImageButton).OnTapped = func() {
+				fmt.Println("Clicked : " + mapFiles[i].FileName)
+				fileName := mapFiles[i].FileName + "." + mapFiles[i].Extension
+
+				HideMaps()
+				ShowMap(fileName)
 			}
-			//o.(*widget.Button).SetText(mapFiles[i].FileName)
-			o.(*widgetExt.ImageButton).Resize(fyne.Size{Width: 400, Height: 100})
-			o.(*widgetExt.ImageButton).SetImage(mapThumb)
+			o.(*widgetExt.ImageButton).Resize(fyne.Size{Width: 400, Height: 50})
+			o.(*widgetExt.ImageButton).SetImage(mapFiles[i].ThumbResource)
 		})
 
 	mapList.Resize(fyne.NewSize(400, 1000))
 	mapList.Move(fyne.Position{X: float32(ScreenWidth) - 410, Y: 10})
 
 	return mapList
+}
+
+func HideMaps() {
+	for _, child := range mainContent.Objects {
+		switch x := child.(type) {
+		case *canvas.Image:
+			x.Hide()
+		}
+	}
+}
+
+func ShowMap(fileName string) {
+	for _, child := range mainContent.Objects {
+		switch x := child.(type) {
+		case *canvas.Image:
+
+			if fileName == x.Resource.Name() {
+				x.Show()
+			}
+		}
+	}
 }
 
 func BuildNavButtons() *widget.Button {

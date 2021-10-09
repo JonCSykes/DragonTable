@@ -166,6 +166,9 @@ func (imageButton *ImageButton) tapAnimation() {
 	imageButton.tapAnim.Start()
 }
 
+func (r *imageButtonRenderer) Destroy() {
+}
+
 func (r *imageButtonRenderer) Refresh() {
 
 	r.label.Segments[0].(*widget.TextSegment).Text = r.imageButton.Text
@@ -180,8 +183,10 @@ func (renderer *imageButtonRenderer) updateImageAndText() {
 	if renderer.imageButton.Image != nil && renderer.imageButton.Visible() {
 		if renderer.image == nil {
 			renderer.image = canvas.NewImageFromResource(renderer.imageButton.Image)
+			renderer.image.Translucency = float64(0.5)
+			renderer.image.Resize(renderer.imageButton.Size())
 			renderer.image.FillMode = canvas.ImageFillOriginal
-			renderer.SetObjects([]fyne.CanvasObject{renderer.background, renderer.tapBG, renderer.label, renderer.image})
+			renderer.SetObjects([]fyne.CanvasObject{renderer.background, renderer.tapBG, renderer.image, renderer.label})
 		}
 		if renderer.imageButton.Disabled() {
 			renderer.image.Resource = theme.NewDisabledResource(renderer.imageButton.Image)
@@ -203,6 +208,10 @@ func (renderer *imageButtonRenderer) updateImageAndText() {
 
 func (renderer *imageButtonRenderer) SetObjects(objects []fyne.CanvasObject) {
 	renderer.objects = objects
+}
+
+func (renderer *imageButtonRenderer) Objects() []fyne.CanvasObject {
+	return renderer.objects
 }
 
 func (renderer *imageButtonRenderer) applyTheme() {
@@ -250,39 +259,37 @@ func (r *imageButtonRenderer) Layout(size fyne.Size) {
 	r.background.Move(inset)
 	r.background.Resize(bgSize)
 
-	hasIcon := r.image != nil
+	hasImage := r.image != nil
 	hasLabel := r.label.Segments[0].(*widget.TextSegment).Text != ""
-	if !hasIcon && !hasLabel {
+	if !hasImage && !hasLabel {
 		// Nothing to layout
 		return
 	}
-	iconSize := fyne.NewSize(theme.IconInlineSize(), theme.IconInlineSize())
+	imageSize := bgSize
 	labelSize := r.label.MinSize()
 	padding := r.padding()
 	if hasLabel {
-		if hasIcon {
+		if hasImage {
 			// Both
 			var objects []fyne.CanvasObject
-			if r.imageButton.IconPlacement == widget.ButtonIconLeadingText {
-				objects = append(objects, r.image, r.label)
-			} else {
-				objects = append(objects, r.label, r.image)
-			}
-			r.image.SetMinSize(iconSize)
+
+			objects = append(objects, r.image, r.label)
+
+			r.image.SetMinSize(imageSize)
 			min := r.layout.MinSize(objects)
 			r.layout.Layout(objects, min)
-			pos := alignedPosition(r.imageButton.Alignment, padding, min, size)
-			r.label.Move(r.label.Position().Add(pos))
-			r.image.Move(r.image.Position().Add(pos))
+
+			r.label.Move(alignedPosition(r.imageButton.Alignment, padding, labelSize, size))
+			r.image.Move(r.image.Position())
 		} else {
 			// Label Only
 			r.label.Move(alignedPosition(r.imageButton.Alignment, padding, labelSize, size))
 			r.label.Resize(labelSize)
 		}
 	} else {
-		// Icon Only
-		r.image.Move(alignedPosition(r.imageButton.Alignment, padding, iconSize, size))
-		r.image.Resize(iconSize)
+		// Image Only
+		r.image.Move(alignedPosition(r.imageButton.Alignment, padding, imageSize, size))
+		r.image.Resize(imageSize)
 	}
 }
 
