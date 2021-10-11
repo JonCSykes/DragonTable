@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -21,6 +22,8 @@ type MapFile struct {
 	Extension         string
 	FullPath          string
 	FullThumbnailPath string
+	Height            int
+	Width             int
 	Image             *canvas.Image
 	ImageResource     fyne.Resource
 	ThumbResource     fyne.Resource
@@ -86,6 +89,27 @@ func GetMaps() []*MapFile {
 	for _, file := range files {
 		if !strings.Contains(file.Name(), "_thumb") {
 			mapFile := InitMapFile(MapPath + "/" + file.Name())
+
+			fileReader, err := os.Open(MapPath + "/" + file.Name())
+			if err != nil {
+				fmt.Println("Impossible to open the file:", err)
+			} else {
+				defer fileReader.Close()
+				imageConfig, _, err := image.DecodeConfig(fileReader)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s: %v\n", file.Name(), err)
+					continue
+				}
+
+				mapFile.Width = imageConfig.Width
+				mapFile.Height = imageConfig.Height
+
+				mapFile.Image.Resize(fyne.NewSize(float32(imageConfig.Width), float32(imageConfig.Height)))
+				mapFile.Image.SetMinSize(fyne.NewSize(float32(imageConfig.Width), float32(imageConfig.Height)))
+
+				fmt.Println("Created " + mapFile.FileName + " : " + strconv.Itoa(mapFile.Width) + "x" + strconv.Itoa(mapFile.Height))
+			}
+
 			mapFiles = append(mapFiles, mapFile)
 		}
 	}

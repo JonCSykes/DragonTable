@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/JonCSykes/DragonTable/mapFile"
@@ -26,6 +27,10 @@ var ScreenWidth int
 
 var mapFiles []*mapFile.MapFile
 var mainContent *fyne.Container
+var CurrentMap *canvas.Image
+var CurrentMapSize fyne.Size
+var MapControl *container.Scroll
+var ZoomControl *fyne.Container
 
 func main() {
 
@@ -39,7 +44,7 @@ func main() {
 	mainWindow.SetContent(mainContent)
 
 	mainWindow.SetPadded(true)
-	//mainWindow.SetFullScreen(true)
+	mainWindow.SetFullScreen(true)
 	mainWindow.ShowAndRun()
 }
 
@@ -54,15 +59,22 @@ func GetScreenResolution() {
 
 func BuildUI() {
 
+	content := container.NewWithoutLayout()
+
+	wallpaper := BuildWallpaper()
 	mapList := BuildNavList()
 	navButtons := BuildNavButtons()
-	images := BuildImageDisplay()
-	content := container.NewWithoutLayout()
 	lines := DrawGrid()
 
-	for _, image := range images {
-		content.Add(image)
-	}
+	InitCurrentMap()
+	BuildZoomControls()
+
+	MapControl = container.NewScroll(CurrentMap)
+	MapControl.Resize(fyne.NewSize(float32(ScreenWidth), float32(ScreenHeight)))
+	MapControl.Move(fyne.Position{X: 0, Y: 0})
+
+	content.Add(wallpaper)
+	content.Add(MapControl)
 
 	for _, line := range lines {
 		content.Add(line)
@@ -74,22 +86,14 @@ func BuildUI() {
 
 	content.Add(mapList)
 
-	mainContent = content
-
-	fmt.Println("Execute BuildUI")
-	fmt.Println(len(mainContent.Objects))
-}
-
-func BuildImageDisplay() []*canvas.Image {
-
-	fmt.Println("Execute BuildImageDisplay")
-	if len(mapFiles) == 0 {
-		fmt.Println("Execute GetMaps in BuildImageDisplay")
-		mapFiles = mapFile.GetMaps()
+	if ZoomControl != nil {
+		content.Add(ZoomControl)
 	}
 
-	var images []*canvas.Image
+	mainContent = content
+}
 
+func BuildWallpaper() *canvas.Image {
 	dragonTableWallpaperResource, imageError := fyne.LoadResourceFromPath(DragonTableWallpaperPath)
 	if imageError != nil {
 		fmt.Println(imageError)
@@ -100,27 +104,24 @@ func BuildImageDisplay() []*canvas.Image {
 	dragonTableImage.FillMode = canvas.ImageFillContain
 	dragonTableImage.Move(fyne.Position{X: 0, Y: 0})
 
-	images = append(images, dragonTableImage)
+	return dragonTableImage
+}
 
-	for _, mapFile := range mapFiles {
-
-		mapFile.Image.Hide()
-
-		mapFile.Image.Resize(fyne.NewSize(float32(ScreenWidth), float32(ScreenHeight)))
-		mapFile.Image.FillMode = canvas.ImageFillContain
-		mapFile.Image.Move(fyne.Position{X: 0, Y: 0})
-
-		images = append(images, mapFile.Image)
+func InitCurrentMap() {
+	if len(mapFiles) == 0 {
+		mapFiles = mapFile.GetMaps()
 	}
-	return images
+
+	CurrentMap = mapFiles[0].Image
+	CurrentMap.FillMode = canvas.ImageFillStretch
+	CurrentMapSize = CurrentMap.Size()
+
+	CurrentMap.Hide()
 }
 
 func BuildNavList() *widget.List {
 
-	fmt.Println("Execute BuildNavList")
-
 	if len(mapFiles) == 0 {
-		fmt.Println("Execute GetMaps in BuildNavList")
 		mapFiles = mapFile.GetMaps()
 	}
 
@@ -136,10 +137,15 @@ func BuildNavList() *widget.List {
 			o.(*widgetExt.ImageButton).SetText(mapFiles[i].FileName)
 			o.(*widgetExt.ImageButton).OnTapped = func() {
 				fmt.Println("Clicked : " + mapFiles[i].FileName)
-				fileName := mapFiles[i].FileName + "." + mapFiles[i].Extension
+				fmt.Println("Width : " + strconv.Itoa(mapFiles[i].Width))
+				fmt.Println("Height : " + strconv.Itoa(mapFiles[i].Height))
 
-				HideMaps()
-				ShowMap(fileName)
+				if !CurrentMap.Hidden && CurrentMap.Resource.Name() == mapFiles[i].FileName+"."+mapFiles[i].Extension {
+					HideCurrentMap()
+				} else {
+					SetCurrentMap(mapFiles[i].Image)
+					ShowCurrentMap()
+				}
 			}
 			o.(*widgetExt.ImageButton).Resize(fyne.Size{Width: 200, Height: 50})
 			o.(*widgetExt.ImageButton).SetImage(mapFiles[i].ThumbResource)
@@ -151,35 +157,33 @@ func BuildNavList() *widget.List {
 	return mapList
 }
 
-func HideMaps() {
-
-	fmt.Println("Execute HideMaps")
-	fmt.Println(len(mainContent.Objects))
-
-	for _, child := range mainContent.Objects {
-		switch x := child.(type) {
-		case *canvas.Image:
-			if x.Resource.Name() != "dragontable.jpg" {
-				x.Hide()
-			}
-		}
+func HideCurrentMap() {
+	if CurrentMap != nil {
+		CurrentMap.Hide()
+		ZoomControl.Hide()
 	}
 }
 
-func ShowMap(fileName string) {
-
-	fmt.Println("Execute ShowMap")
-	fmt.Println(len(mainContent.Objects))
-
-	for _, child := range mainContent.Objects {
-		switch x := child.(type) {
-		case *canvas.Image:
-
-			if fileName == x.Resource.Name() {
-				x.Show()
-			}
-		}
+func ShowCurrentMap() {
+	if CurrentMap != nil {
+		CurrentMap.Show()
+		ZoomControl.Show()
 	}
+}
+
+func SetCurrentMap(image *canvas.Image) {
+	CurrentMap = image
+	CurrentMap.FillMode = canvas.ImageFillStretch
+	CurrentMap.Move(fyne.Position{X: 0, Y: 0})
+	CurrentMapSize = CurrentMap.Size()
+
+	fmt.Println(image.Size().Width, image.Size().Height)
+	fmt.Println(CurrentMap.Size().Width, CurrentMap.Size().Height)
+	fmt.Println(CurrentMapSize.Width, CurrentMapSize.Height)
+
+	MapControl.Content = CurrentMap
+	MapControl.Refresh()
+
 }
 
 func BuildNavButtons() []*widget.Button {
@@ -224,11 +228,6 @@ func BuildNavButtons() []*widget.Button {
 	touchControlButton.Move(fyne.Position{X: float32(ScreenWidth) - 130, Y: 10})
 
 	hamburgerButton = widget.NewButtonWithIcon("", hamburger, func() {
-		if hamburgerButton.Importance == widget.HighImportance {
-			hamburgerButton.Importance = widget.MediumImportance
-		} else {
-			hamburgerButton.Importance = widget.HighImportance
-		}
 
 		for _, child := range mainContent.Objects {
 			switch x := child.(type) {
@@ -236,8 +235,10 @@ func BuildNavButtons() []*widget.Button {
 
 				if x.Hidden {
 					x.Show()
+					hamburgerButton.Importance = widget.HighImportance
 				} else {
 					x.Hide()
+					hamburgerButton.Importance = widget.MediumImportance
 				}
 			}
 		}
@@ -249,19 +250,15 @@ func BuildNavButtons() []*widget.Button {
 
 	gridButton = widget.NewButtonWithIcon("", gridIcon, func() {
 
-		if gridButton.Importance == widget.HighImportance {
-			gridButton.Importance = widget.MediumImportance
-		} else {
-			gridButton.Importance = widget.HighImportance
-		}
-
 		for _, child := range mainContent.Objects {
 			switch x := child.(type) {
 			case *canvas.Line:
 				if x.Hidden {
 					x.Show()
+					gridButton.Importance = widget.HighImportance
 				} else {
 					x.Hide()
+					gridButton.Importance = widget.MediumImportance
 				}
 			}
 		}
@@ -305,4 +302,28 @@ func DrawGrid() []*canvas.Line {
 	}
 
 	return lines
+}
+
+func BuildZoomControls() {
+
+	f := 1.0
+	data := binding.BindFloat(&f)
+	label := widget.NewLabelWithData(binding.FloatToStringWithFormat(data, "Zoom: %0f"))
+	slide := widget.NewSliderWithData(1, 2, data)
+	slide.Step = 0.1
+	slide.Resize(fyne.NewSize(600, 50))
+	slide.OnChanged = func(value float64) {
+		fmt.Println("Zoom Changed " + fmt.Sprintf("%f", value))
+		if CurrentMap != nil {
+			newWidth := CurrentMapSize.Width * float32(value)
+			newHeight := CurrentMapSize.Height * float32(value)
+			CurrentMap.Resize(fyne.NewSize(newWidth, newHeight))
+			CurrentMap.SetMinSize(fyne.NewSize(newWidth, newHeight))
+			fmt.Println(CurrentMapSize.Width, CurrentMapSize.Height)
+			fmt.Println(newWidth, newHeight)
+		}
+	}
+	ZoomControl = container.NewVBox(label, slide)
+	ZoomControl.Move(fyne.NewPos(float32(ScreenWidth-200), float32(ScreenHeight-200)))
+	ZoomControl.Hide()
 }
