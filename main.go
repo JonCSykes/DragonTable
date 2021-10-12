@@ -217,9 +217,11 @@ func BuildNavButtons() []*widget.Button {
 		if touchControlButton.Icon == disabledTouchIcon {
 			touchControlButton.Importance = widget.HighImportance
 			touchControlButton.SetIcon(enabledTouchIcon)
+			MapControl.Scrolled(&fyne.ScrollEvent{PointEvent: fyne.PointEvent{AbsolutePosition: fyne.NewPos(0, 0), Position: fyne.NewPos(0, 0)}, Scrolled: fyne.NewDelta(45, 45)})
 		} else {
 			touchControlButton.Importance = widget.MediumImportance
 			touchControlButton.SetIcon(disabledTouchIcon)
+			MapControl.Scrolled(&fyne.ScrollEvent{PointEvent: fyne.PointEvent{AbsolutePosition: fyne.NewPos(0, 0), Position: fyne.NewPos(0, 0)}, Scrolled: fyne.NewDelta(245, 245)})
 		}
 	})
 
@@ -326,4 +328,5 @@ func BuildZoomControls() {
 	ZoomControl = container.NewVBox(label, slide)
 	ZoomControl.Move(fyne.NewPos(float32(ScreenWidth-200), float32(ScreenHeight-200)))
 	ZoomControl.Hide()
+
 }
