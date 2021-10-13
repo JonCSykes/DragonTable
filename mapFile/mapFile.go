@@ -59,7 +59,7 @@ func (mapFile *MapFile) GenerateThumb() {
 	defer imagePath.Close()
 	srcImage, _, _ := image.Decode(imagePath)
 
-	dstImage := image.NewRGBA(image.Rect(0, 0, 200, 50))
+	dstImage := image.NewRGBA(image.Rect(0, 0, 250, 50))
 
 	graphics.Thumbnail(dstImage, srcImage)
 

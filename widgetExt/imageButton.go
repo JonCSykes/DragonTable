@@ -183,7 +183,7 @@ func (renderer *imageButtonRenderer) updateImageAndText() {
 	if renderer.imageButton.Image != nil && renderer.imageButton.Visible() {
 		if renderer.image == nil {
 			renderer.image = canvas.NewImageFromResource(renderer.imageButton.Image)
-			renderer.image.Translucency = float64(0.5)
+			renderer.image.Translucency = float64(0.3)
 			renderer.image.Resize(renderer.imageButton.Size())
 			renderer.image.FillMode = canvas.ImageFillOriginal
 			renderer.SetObjects([]fyne.CanvasObject{renderer.background, renderer.tapBG, renderer.image, renderer.label})
